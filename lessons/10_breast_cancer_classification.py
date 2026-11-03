@@ -37,6 +37,13 @@ from sklearn.tree import DecisionTreeClassifier
 
 # --- 1. Load (Step 1) --------------------------------------------------------
 data = load_breast_cancer()
+# X = the features (the INPUT): a 2-D array, one row per tumour (569 rows) and
+#     one column per measurement (30 columns, e.g. mean radius, mean texture).
+#     Capital X because it is a matrix.
+# y = the target (the OUTPUT / label we want to predict): a 1-D array with one
+#     value per tumour, 0 = malignant or 1 = benign. Lowercase y because it is
+#     a vector.
+# The model learns the mapping X -> y. Row i of X always matches y[i].
 X, y = data.data, data.target
 print("X shape:", X.shape, "| y shape:", y.shape)
 print("Classes:", dict(enumerate(map(str, data.target_names))))
@@ -45,6 +52,8 @@ print("First 5 features:", list(data.feature_names[:5]), "...\n")
 # --- 2. Split (Step 2) -------------------------------------------------------
 # 80% train / 20% test. random_state=42 makes the split reproducible.
 # Split BEFORE scaling, so the test rows cannot influence the scaler.
+# X_train / y_train = features and labels the model learns from.
+# X_test  / y_test  = features and labels held back to check the model later.
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # --- 3. Scale (Step 3) -------------------------------------------------------
