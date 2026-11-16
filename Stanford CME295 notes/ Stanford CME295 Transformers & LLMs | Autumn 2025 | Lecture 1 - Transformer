@@ -1,0 +1,948 @@
+Source - [Stanford course link](https://www.youtube.com/watch?v=Ub3GoFaUcds&list=PLoROMvodv4rOCXd21gf0CF4xr35yINeOy&index=1)
+# NLP Tasks
+
+
+## 1. Classification
+
+```mermaid
+flowchart LR
+    A["Input text"] --> B["Model"] --> C["One of the classes below"]
+```
+
+Examples:
+
+- a. Intent detection
+- b. Sentiment extraction
+- c. Language modelling
+
+## 2. Multi-classification
+
+```mermaid
+flowchart LR
+    A["Input text"] --> B["Model"] --> C["One class per token, from the options below"]
+```
+
+Examples:
+
+- a. Part-of-speech tagging
+- b. NER (Named Entity Recognition)
+- c. Dependency parsing
+- d. Constituency parsing
+
+## 3. Generation
+
+```mermaid
+flowchart LR
+    A["Input text"] --> B["Model"] --> C["Output text"]
+```
+
+Examples:
+
+- a. Summarization
+- b. Translation
+
+## Evaluation Metrics
+
+*(Refer to the README section.)*
+
+1. Accuracy
+2. Precision
+3. Recall
+4. F1 score
+
+## Machine Translation
+
+Text in → Text out.
+
+```mermaid
+flowchart LR
+    A["hello how are you?"] --> B["Model"] --> C["¡Hola! ¿Cómo estás?"]
+```
+
+### Evaluation Metrics
+
+1. **BLEU**: quality of the translated text, ~ precision
+2. **ROUGE**: quality of the generated text, ~ accuracy
+3. **Perplexity**: quantifies how surprised the model is to see some words together
+
+## Approximate Timeline
+
+```mermaid
+timeline
+    title Evolution of NLP models
+    1980s : RNNs
+    1997 : Long Short-Term Memory (LSTM)
+    2013 : Word2vec
+    2017 : Transformers
+    2020s : LLMs
+```
+
+
+# Tokenization
+A cute teddy bear is reading.
+How to cut this sentence to pass to a model? -> Tokenization
+- Arbitrary
+    eg. A, cute, teddy bear, is, reading, .
+- word
+    eg.A, cute, teddy, bear, is, reading, .
+    con: Similar words might be tokenized like reading & read
+- subword
+    eg. A, cute, ted, ##dy, bear, is, read, ##ing, .
+- character 
+   eg. a, c, u, t, e, t, e, d
+   con: longer sequnce, challenge to understand what each token mean
+
+## Tokenization Methods: Pros and Cons
+
+| Method | Pros | Cons |
+|---|---|---|
+| **Word-level** | • Simple<br>• Interpretable | • Risk of OOV (out-of-vocabulary)<br>• Does not leverage knowledge of root |
+| **Subword-level**<br>e.g. WordPiece, BPE | • Leverages common prefixes and suffixes<br>• Learned from the data | • Risk of OOV, though less than word-level |
+| **Character-level** | • Small chance of OOV<br>• Robust to casing and misspellings | • Makes computations slower<br>• Embeddings not interpretable |
+
+## Token representations
+
+### OHE - One-hot encoding
+
+Plot the tokens on a 3-axis graph, one axis per token:
+
+- **teddy bear**: up
+- **soft**: horizontal
+- **book**: orthogonal to the other two
+
+**Con:** tokens end up orthogonal to each other.
+
+![One-hot encoding: each token sits on its own axis](../outputs/ohe_token_axes.png)
+
+### Learned embedding
+- **teddy bear**: up
+- **soft**: closer to teddy bear
+- **book**: distant from the other two
+
+![Learned embedding: similar tokens sit close together](../outputs/learned_embedding_axes.png)
+
+
+### Word2vec
+- Neural network with a proxy task over billions of words worth of text
+- Learns and embedding layer
+
+
+# Dependnecy on Neural networks and softmax  read
+
+Word2vec is a tiny neural network. Two ideas are needed first.
+
+## Neural network (the minimum needed)
+
+- A **layer** is a matrix multiply: `output = input × W` (W = weights, learned).
+- A network is layers stacked: `input → layer 1 → layer 2 → output`.
+- **Training** = guess, measure how wrong the guess was (the **loss**), nudge W to be less wrong, repeat over lots of data.
+
+```mermaid
+flowchart LR
+    X["input<br>(one-hot token)"] --> W1["layer 1<br>weights W1"] --> H["hidden vector<br>(the embedding)"] --> W2["layer 2<br>weights W2"] --> S["scores<br>one per vocab word"] --> P["softmax<br>probabilities"]
+```
+
+Why this matters for word2vec: **the weights of layer 1 *are* the embeddings.**
+A one-hot vector times W1 just selects one row of W1, so each row is one token's embedding (a lookup table).
+The network is never used for its predictions. It is trained so that W1 becomes useful.
+
+## Neural network: a worked example
+
+**Task:** predict whether a student **passes** (1) or **fails** (0) from hours studied and hours slept.
+This student studied **4 h**, slept **2 h**, and actually **passed** (true answer = 1).
+
+> **Note on the numbers:** every *starting* weight below (0.5, -0.3, 0.2, 0.8 in W1 and 0.6, 0.4 in W2) is **made up** by me, chosen to be small and easy to calculate by hand. They are not derived from anything. In a real network they start as small **random** numbers, and training moves them to useful values. Everything *after* the starting weights (hidden values, score, probability, loss, gradients, new weights) is calculated from them.
+
+```mermaid
+flowchart LR
+    X1["studied = 4"] --> A["hidden neuron A"]
+    X1 --> B["hidden neuron B"]
+    X2["slept = 2"] --> A
+    X2 --> B
+    A --> O["output score"]
+    B --> O
+    O --> P["sigmoid → P(pass)"]
+```
+
+### The terms
+
+| Term | Meaning | In this example |
+|---|---|---|
+| **Input `x`** | The numbers fed in | `x = [4, 2]` (studied, slept) |
+| **Weight** | A knob: how much one connection matters. Learned, not typed in | e.g. studied→A = 0.5 (starting value **made up** for the example; random in a real network) |
+| **W1** | The **matrix of all weights in layer 1** (inputs → hidden neurons). One row per input, one column per hidden neuron | see below (starting values made up) |
+| **W2** | The matrix of all weights in layer 2 (hidden neurons → output) | `[0.6, 0.4]` (starting values made up) |
+| **Hidden neuron** | A unit that weighs its inputs and adds them up. "Hidden" because you never see its value outside the network | A and B |
+| **Hidden vector `h`** | The list of all hidden neuron values. In word2vec, this is the embedding | `[2.4, 0.4]` |
+| **Activation function** | A small squashing step after the sum. Without it, stacked layers collapse into one | ReLU: negatives become 0 |
+| **Score** (logit) | The raw output number, before turning it into a probability | 1.6 |
+| **Sigmoid** | Squashes any score into 0 to 1. It is softmax for 2 classes | 1.6 → 0.83 |
+| **Loss** | How wrong the guess was (`-log` of the probability given to the true answer) | 0.18 |
+| **Gradient** | Per weight: "if I increase you a little, does the loss go up or down, and by how much?" Found by backpropagation | W2: `[-0.40, -0.07]` |
+| **Learning rate** | How big each nudge is. You choose it | 0.1 |
+
+### Activation functions: ReLU and Sigmoid
+
+An **activation function** is a small step applied to a neuron's number after the multiply-and-add. Two common ones:
+
+**ReLU: "ignore negatives"**
+
+```
+ReLU(x) = x    if x is positive
+        = 0    if x is negative
+```
+
+| input | output |
+|---|---|
+| 2.4 | 2.4 |
+| 0.4 | 0.4 |
+| -1.5 | **0** |
+
+- Works like a one-way gate: positive signals pass unchanged, negative ones are blocked.
+- In the example both hidden values were positive, so ReLU changed nothing. If neuron B had been -0.5, it would become 0 and stay silent for this student.
+- **Why use it:** without an activation, stacked layers collapse into one big multiplication, so extra layers add nothing. The bend at zero lets the network learn curved patterns. It is also very cheap to compute, so it is the usual choice for **hidden layers**.
+
+**Sigmoid: "squash into 0 to 1"**
+
+Takes any number and squashes it into a value between 0 and 1:
+
+| input (score) | output |
+|---|---|
+| -5 | 0.007 (almost 0) |
+| 0 | **0.5** (coin flip) |
+| 1.6 | **0.83** |
+| 5 | 0.993 (almost 1) |
+
+- The output can be read as a **probability**, so it is used on the **output layer** for yes/no questions. In the example, score 1.6 becomes 0.83, meaning "83% pass".
+- It is the two-class version of softmax (below). Softmax does the same job for many classes, such as every word in a vocabulary.
+
+| | ReLU | Sigmoid |
+|---|---|---|
+| Output range | 0 to infinity | 0 to 1 |
+| Job | Blocks negatives, keeps positives | Turns a score into a probability |
+| Typical place | Hidden layers | Output layer (2 classes) |
+| In the example | `[2.4, 0.4]` unchanged | `1.6 → 0.83` |
+
+### The weights
+
+Layer 1 as a matrix (rows = inputs, columns = hidden neurons). These starting numbers are **made up**, not calculated:
+
+```
+            neuron A   neuron B
+W1 =  studied [ 0.5      -0.3 ]
+      slept   [ 0.2       0.8 ]
+```
+
+### Layer 1 and Layer 2 at a glance
+
+Every number on one picture, with the computation on each connection:
+
+```mermaid
+flowchart LR
+    subgraph IN["Input"]
+        X1["studied = 4"]
+        X2["slept = 2"]
+    end
+    subgraph L1["Layer 1 (W1) + ReLU"]
+        A["Neuron A<br>4×0.5 + 2×0.2 = 2.4<br>ReLU → 2.4"]
+        B["Neuron B<br>4×(-0.3) + 2×0.8 = 0.4<br>ReLU → 0.4"]
+    end
+    subgraph L2["Layer 2 (W2) + Sigmoid"]
+        S["Score<br>2.4×0.6 + 0.4×0.4 = 1.6<br>Sigmoid → 0.83"]
+    end
+    X1 -- "×0.5" --> A
+    X1 -- "×(-0.3)" --> B
+    X2 -- "×0.2" --> A
+    X2 -- "×0.8" --> B
+    A -- "×0.6" --> S
+    B -- "×0.4" --> S
+    S --> P["P(pass) = 0.83"]
+```
+
+The same thing as a table:
+
+| | Layer 1 (input → hidden) | Layer 2 (hidden → output) |
+|---|---|---|
+| **Weights** | W1 (2×2): `[[0.5, -0.3], [0.2, 0.8]]` | W2 (2×1): `[0.6, 0.4]` |
+| **Takes in** | `x = [4, 2]` | `h = [2.4, 0.4]` |
+| **Multiply and add** | A: `4×0.5 + 2×0.2 = 2.4`<br>B: `4×(-0.3) + 2×0.8 = 0.4` | `2.4×0.6 + 0.4×0.4 = 1.6` |
+| **Activation** | ReLU: `[2.4, 0.4]` (both positive, unchanged) | Sigmoid: `1.6 → 0.83` |
+| **Gives out** | `h = [2.4, 0.4]` | `P(pass) = 0.83` |
+
+Read it left to right: the output of Layer 1 is the input of Layer 2. Each layer does the same two things: **multiply and add with its weights, then apply its activation.**
+
+### Step 1: forward pass (make a guess)
+
+`h_raw = x × W1`, the multiply-and-add for every hidden neuron at once:
+
+- A: `4×0.5 + 2×0.2 = 2.4`
+- B: `4×(-0.3) + 2×0.8 = 0.4`
+
+ReLU keeps both (they are positive), so `h = [2.4, 0.4]`.
+
+`score = h × W2 = 2.4×0.6 + 0.4×0.4 = 1.6`
+
+(The 0.6 and 0.4 here are the made-up starting weights of W2. Everything else in these lines is calculated from them.)
+
+`P(pass) = sigmoid(1.6) = 0.83`. The network says **83% pass**.
+
+### Step 2: loss
+
+True answer is "pass", so the ideal probability is 1.
+`loss = -log(0.83) = 0.18` (small, because the guess was close).
+
+### Step 3: backpropagation (who is to blame?)
+
+Work backwards from the loss to get a gradient for every weight.
+
+| Weight | Gradient | Reading |
+|---|---|---|
+| A→output (W2) | -0.40 | raising it lowers the loss a lot |
+| B→output (W2) | -0.07 | raising it helps a little |
+| studied→A (W1) | -0.40 | raising it helps |
+| slept→A (W1) | -0.20 | raising it helps |
+| studied→B (W1) | -0.27 | raising it helps |
+| slept→B (W1) | -0.13 | raising it helps |
+
+Neuron A's weights get more blame because A was more active (2.4 vs 0.4), so it had more influence on the answer.
+
+### Step 4: gradient descent (nudge)
+
+`new weight = old weight - learning rate × gradient`
+
+The "Before" column is the made-up starting weight. The learning rate 0.1 is also **chosen by us** (a hyperparameter). The "After" column is calculated, e.g. `0.64 = 0.6 - 0.1 × (-0.40)`.
+
+| Weight | Before | After |
+|---|---|---|
+| A→output | 0.60 | **0.64** |
+| B→output | 0.40 | **0.41** |
+| studied→A | 0.50 | **0.54** |
+| slept→A | 0.20 | **0.22** |
+
+### Step 5: check it helped
+
+Same student, new weights: P(pass) goes **0.83 → 0.87**, loss goes **0.18 → 0.14**.
+Repeat over thousands of students and the weights settle on values that predict well.
+
+### How this maps to word2vec
+
+| | This example | Word2vec |
+|---|---|---|
+| Input `x` | hours studied, slept | one-hot word |
+| W1 | inputs → 2 hidden neurons | vocab size → embedding size (e.g. 300) |
+| Hidden vector `h` | `[2.4, 0.4]` | the word's embedding |
+| W2 | hidden → 1 score | embedding → one score per vocab word |
+| Output | sigmoid, P(pass) | softmax, P(each word) |
+| Weights we keep | all | **W1 only** |
+
+## Softmax
+
+Layer 2 outputs raw **scores** (any number, positive or negative), one per word in the vocabulary.
+Softmax turns scores into **probabilities** (all between 0 and 1, summing to 1):
+
+$$softmax(z_i) = \frac{e^{z_i}}{\sum_j e^{z_j}}$$
+
+- `e^z` makes every score positive and exaggerates the gap between big and small scores.
+- Dividing by the total makes them sum to 1.
+
+### Note: what is `e` (Euler's number)?
+
+`e` is a **fixed number, about 2.718**, like π is about 3.14. It is not a variable. `e^z` means "2.718 raised to the power z". In code: `np.exp(z)`.
+
+| z | e^z |
+|---|---|
+| -2 | 0.14 |
+| -1 | 0.37 |
+| 0 | **1** |
+| 1 | 2.72 |
+| 1.6 | 4.95 |
+| 2 | 7.39 |
+
+Why sigmoid and softmax use it:
+
+1. **Never negative.** Even `e^-5` is a small positive number (0.007). Probabilities can't be negative, and `e^z` guarantees that for any score `z`.
+2. **Keeps the order.** A bigger score always gives a bigger `e^z`, so the highest score stays the most likely.
+3. **Widens gaps.** Scores 2.0 and 1.0 are only 1 apart, but `e^z` turns them into 7.39 and 2.72, so the leader pulls ahead.
+4. **Smooth.** No jumps in the curve, which makes the backpropagation nudges work well.
+
+Another base (2 or 10) would also work. `e` is the standard choice because the gradient maths comes out cleanest with it.
+
+Where it comes from (not needed for the course): `e` appears in continuous growth, like compound interest applied constantly instead of once a year.
+
+Also, in the softmax formula `z` is the raw score (also called a **logit**) that a layer outputs before it becomes a probability. `z_i` is the score of one word, and the sum runs over all the scores.
+
+Worked example (3-word vocabulary):
+
+| word | score z | e^z | probability |
+|---|---|---|---|
+| teddy bear | 2.0 | 7.39 | 7.39 / 11.21 = **0.66** |
+| book | 1.0 | 2.72 | 2.72 / 11.21 = **0.24** |
+| soft | 0.1 | 1.11 | 1.11 / 11.21 = **0.10** |
+| **total** | | 11.21 | **1.00** |
+
+## Loss: how wrong was the guess?
+
+**Cross-entropy**: `loss = -log(probability given to the correct word)`
+
+- Correct word got 0.66 → loss = -log(0.66) = **0.42** (small, good)
+- Correct word got 0.10 → loss = -log(0.10) = **2.30** (big, bad)
+
+Training nudges W1 and W2 to push that probability up. Words that appear in similar contexts get pushed the same way, so their rows in W1 end up close together. That is how "teddy bear" and "soft" become neighbours.
+
+### Note: entropy and cross-entropy
+
+**Entropy: how unpredictable is something, on average?**
+
+Start with **surprise**: an unlikely event surprises you a lot, a likely one barely does.
+
+```
+surprise = -log(probability)
+```
+
+| event | probability | surprise (bits) |
+|---|---|---|
+| the sun rises | 0.99 | ~0.01 (not surprising) |
+| fair coin lands heads | 0.5 | 1 |
+| a 1-in-10 event happens | 0.1 | 3.32 (quite surprising) |
+
+**Entropy = the average surprise** over all outcomes, weighted by how often each happens:
+
+```
+entropy = - sum( p × log(p) )
+```
+
+| situation | probabilities | entropy (bits) |
+|---|---|---|
+| Fair coin | 0.5, 0.5 | **1.0** (max uncertainty for 2 outcomes) |
+| Biased coin | 0.9, 0.1 | **0.47** (mostly predictable) |
+| Always heads | 1.0, 0 | **0** (no uncertainty) |
+
+**Cross-entropy: how surprised are you when your beliefs are wrong?**
+
+Entropy assumes you know the true probabilities. Cross-entropy measures the average surprise when you predict with the **model's** probabilities `q` while reality follows the **true** ones `p`:
+
+```
+cross-entropy = - sum( true p × log(model q) )
+```
+
+- Model matches reality: cross-entropy is as low as it can be (equal to the entropy).
+- Model is off: cross-entropy is higher. The extra is the price of the wrong beliefs.
+
+Example: a fair coin (true `[0.5, 0.5]`) but the model believes `[0.9, 0.1]`:
+`0.5×0.15 + 0.5×3.32 = 1.74` bits, versus entropy 1.0. The extra 0.74 bits is what training tries to shrink.
+
+**The special case used above (classification).** The truth is **one-hot**: the correct word has probability 1, all others 0. Every term in the sum vanishes except one:
+
+```
+cross-entropy = -log(probability the model gave to the correct word)
+```
+
+That is exactly the loss formula at the top of this section.
+
+| | teddy bear | book | soft |
+|---|---|---|---|
+| True | **1** | 0 | 0 |
+| Model | 0.66 | 0.24 | 0.10 |
+
+`loss = -ln(0.66) = 0.42`. (The true distribution has entropy 0, so the whole 0.42 is the model's error.)
+
+Why it works as a loss:
+
+- Correct answer gets probability near 1: loss near 0.
+- Correct answer gets probability near 0: loss shoots up (`-ln(0.01) = 4.6`), so confident wrong answers are punished hard.
+- It is smooth, so backpropagation can compute good nudges.
+
+**Bits vs nats.** Bits use `log₂`; libraries and the numbers in these notes (0.42, 2.30) use the natural log `ln` (nats). Same idea, different scale.
+
+**One line:** entropy is the average surprise of the truth; cross-entropy is the average surprise when you use the model's guesses instead. It is the classification loss, and training pushes it down.
+
+## Cost to remember
+
+Softmax sums over the **whole vocabulary** for every training example. With 100k+ words that is slow, which is why real word2vec uses shortcuts (negative sampling, hierarchical softmax).
+
+## The proxy tasks
+
+Word2vec trains the network on one of two made-up tasks, just to get good embeddings:
+
+1. CBOW (continuous bag of words)
+   - Predict the middle word from the surrounding context words.
+   - eg. context: `A`, `cute`, `is`, `reading` -> target: `teddy bear`
+
+   ```mermaid
+   flowchart LR
+       A["A"] --> T["teddy bear"]
+       B["cute"] --> T
+       C["is"] --> T
+       D["reading"] --> T
+   ```
+
+2. Skip-gram
+   - Opposite of CBOW: predict the surrounding context words from the middle word.
+   - eg. input: `teddy bear` -> targets: `A`, `cute`, `is`, `reading`
+
+   ```mermaid
+   flowchart LR
+       T["teddy bear"] --> A["A"]
+       T --> B["cute"]
+       T --> C["is"]
+       T --> D["reading"]
+   ```
+
+
+## Termination condition
+- Tracking loss    
+
+## Putting it together
+
+```mermaid
+flowchart LR
+    A["Raw text<br>(billions of words)"] --> B["Make (input, target) pairs<br>with CBOW or skip-gram"]
+    B --> C["One-hot input × W1<br>= embedding"]
+    C --> D["× W2 → scores → softmax"]
+    D --> E["Cross-entropy loss<br>vs the true word"]
+    E --> F["Nudge W1, W2"]
+    F --> B
+```
+
+1. Slide a window over the text to create pairs (no human labels needed, the text labels itself).
+2. Predict the target word, measure the loss, update the weights.
+3. After training, **throw away layer 2 and keep W1**: one learned vector per token.
+
+Limitation (leads to Transformers): one vector per word, regardless of context. "bank" (river) and "bank" (money) get the same embedding.
+
+
+
+# RNNS - Recurrent Neural Networks
+- Class of NN where connections form a temporal sequence
+
+
+# Transformer
+- Introduced in 2017 paper "Attention is All You Need"
+- Relies on the self-attention mechanism
+- Stat-of-art results on machine translation tasks
+
+
+## Attention machanism
+- Concept of Query, Key, Value
+
+### Query and keys: one token looks at all the others
+
+Sentence: `a`, `cute`, `teddy bear`, `is`, `reading`, `.`
+
+The token we are working on right now is **teddy bear**. It produces a **query** `q`. Every token in the sentence (including teddy bear itself) has a **key** `k`. The query is compared against every key.
+
+```mermaid
+flowchart TB
+    subgraph TOP["Every token has a key"]
+        direction LR
+        T1["a"] --- K1["k_a"]
+        T2["cute"] --- K2["k_cute"]
+        T3["teddy bear"] --- K3["k_teddy bear"]
+        T4["is"] --- K4["k_is"]
+        T5["reading"] --- K5["k_reading"]
+        T6["."] --- K6["k_."]
+    end
+    Q["q_teddy bear<br>(the query)"]
+    Q --- K1
+    Q --- K2
+    Q --- K3
+    Q --- K4
+    Q --- K5
+    Q --- K6
+    Q --- B["teddy bear<br>(the token asking)"]
+    style Q fill:#fde8e8,stroke:#a33,color:#a33
+    style B fill:#fff,stroke:#333,stroke-width:3px
+```
+
+| Part | Symbol | In the picture |
+|---|---|---|
+| Token asking the question | `q_teddy bear` | Bottom row. The bold box is teddy bear, the others are greyed out. |
+| Tokens being looked at | `k_a`, `k_cute`, `k_teddy bear`, `k_is`, `k_reading`, `k_.` | Top row. One key per token, written as a transpose `kᵀ` so it can be multiplied with `q`. |
+| Lines | one per key | The query is compared with **all** keys, not only its neighbours. |
+
+Reading it in simple words:
+
+- **Query** = "what am I looking for?" (asked by the current token).
+- **Key** = "what do I contain?" (offered by every token).
+- Comparing the query with a key tells us how relevant that token is to teddy bear. For example, `cute` and `reading` are likely more relevant than `.`.
+- Unlike an RNN, which reads one token at a time and passes memory along, this looks at **every token directly**, however far away.
+
+### Value: what a token hands over
+
+The picture shows only the query and the keys. The standard attention recipe has a third vector per token, the **value** `v`.
+
+- **Query** `q` = "what am I looking for?"
+- **Key** `k` = "what do I contain?" (used only to *match* against queries)
+- **Value** `v` = "what do I give you if you pick me?" (the content that actually gets passed on)
+
+Each token's embedding `x` is turned into all three by three learned weight matrices (the same idea as W1 and W2 earlier: learned, shared by every token):
+
+```
+q = x × W_Q        k = x × W_K        v = x × W_V
+```
+
+```mermaid
+flowchart LR
+    X["token embedding x<br>(d_model numbers)"] --> Q["q = x W_Q<br>(d_k numbers)"]
+    X --> K["k = x W_K<br>(d_k numbers)"]
+    X --> V["v = x W_V<br>(d_v numbers)"]
+    Q --> S["score = q · k<br>(one number per token pair)"]
+    K --> S
+    S --> W["softmax<br>weights, sum to 1"]
+    W --> O["output = weighted sum of the v's<br>(d_v numbers)"]
+    V --> O
+```
+
+### The dimensions
+
+| Symbol | Meaning | Typical size | In the worked example below (sizes chosen by me) |
+|---|---|---|---|
+| `d_model` | Length of each token's embedding `x` (same `d` as in word2vec) | 512 in the original Transformer | not shown |
+| `d_k` | Length of the query `q` and the key `k` | 64 | **2** |
+| `d_v` | Length of the value `v`, so also the length of the output | 64 | **3** |
+
+Shapes, for `n` tokens (here n = 6):
+
+| Matrix | Shape | Why |
+|---|---|---|
+| `W_Q`, `W_K` | `d_model × d_k` | turn an embedding into a query or key |
+| `W_V` | `d_model × d_v` | turn an embedding into a value |
+| `K` (all keys stacked) | `n × d_k` | one row per token |
+| `V` (all values stacked) | `n × d_v` | one row per token |
+| scores `q · Kᵀ` | `1 × n` | one score per token |
+| output | `1 × d_v` | weighted mix of the value rows |
+
+Two rules to remember:
+
+- **`d_k` must match between `q` and `k`**, because a dot product needs two vectors of the same length. `d_v` is free to differ: it only sets the size of the output.
+- Scores are divided by `√d_k` before softmax. With long vectors the dot products get large, and softmax would then pile almost all the weight on one token, so this keeps the scores in a calm range. (In the original paper it is `softmax(q·Kᵀ / √d_k)`.)
+
+### From embedding to query: `x × W_Q`
+
+Before the worked example, here is how a query is calculated from a token's embedding. This is the step the worked example skips.
+
+> **Note on the numbers:** `x` and `W_Q` below are **made up**, and I chose them *backwards* so that the result equals the `q = [1.0, 0.5]` used in the worked example. So this shows how the calculation works, not where that `q` originally came from. In a real model `x` is a row of the learned embedding table and `W_Q` starts as small **random** numbers that training adjusts.
+
+Say `d_model = 3` and `d_k = 2`:
+
+```
+x = [1, 0, 2]                      (embedding of "teddy bear", 3 numbers)
+
+        [0.5   0.0 ]
+W_Q =   [1.0   0.5 ]               (3 × 2: d_model × d_k)
+        [0.25  0.25]
+```
+
+`q = x × W_Q`: each output number is the embedding multiplied element by element with one **column** of `W_Q`, then added up.
+
+```
+q[0] = 1×0.5  + 0×1.0 + 2×0.25 = 0.5 + 0 + 0.5 = 1.0
+q[1] = 1×0.0  + 0×0.5 + 2×0.25 = 0   + 0 + 0.5 = 0.5
+
+q = [1.0, 0.5]
+```
+
+```mermaid
+flowchart LR
+    X["x = [1, 0, 2]<br>(d_model = 3)"] --> M["× W_Q<br>(3 × 2)"] --> Q["q = [1.0, 0.5]<br>(d_k = 2)"]
+```
+
+- It is the same multiply-and-add as a layer in the network example: `input × weights`.
+- The sizes line up like before: `(1 × d_model) × (d_model × d_k) = (1 × d_k)`.
+- The keys and values are calculated the same way, with `W_K` and `W_V` in place of `W_Q`. The *same* three matrices are used for every token.
+- Training changes `W_Q`, `W_K` and `W_V` (by backpropagation), so the model learns what to look for, what to offer, and what to hand over.
+
+### Worked example (all numbers made up)
+
+> **Note on the numbers:** the query `q`, every key `k` and every value `v` below are **made up** by me, chosen small so the arithmetic is easy to follow. They are not derived from anything. In a real Transformer they are not typed in: each is computed as `x × W_Q`, `x × W_K` or `x × W_V` from the token's embedding `x`, and the weight matrices `W_Q`, `W_K`, `W_V` start as small **random** numbers and are learned in training (the same way W1 and W2 were in the network example). Everything *after* the made-up vectors (scores, the ÷ √2, softmax weights, weight × `v`, the final output) is calculated from them.
+
+Query for **teddy bear**: `q = [1.0, 0.5]` (`d_k = 2`). Each token has a key (2 numbers) and a value (`d_v = 3` numbers):
+
+| token | key `k` | value `v` | score `q · k` | ÷ √2 | weight (softmax) | weight × `v` |
+|---|---|---|---|---|---|---|
+| a | [0.0, 0.2] | [1, 0, 0] | 0.10 | 0.07 | 0.11 | [0.11, 0.00, 0.00] |
+| cute | [0.8, 0.6] | [0, 2, 1] | 1.10 | 0.78 | 0.22 | [0.00, 0.43, 0.22] |
+| teddy bear | [1.0, 1.0] | [3, 1, 0] | 1.50 | 1.06 | 0.29 | [0.86, 0.29, 0.00] |
+| is | [0.1, -0.2] | [0, 0, 1] | 0.00 | 0.00 | 0.10 | [0.00, 0.00, 0.10] |
+| reading | [0.6, 1.0] | [1, 1, 2] | 1.10 | 0.78 | 0.22 | [0.22, 0.22, 0.43] |
+| . | [-0.4, -0.2] | [0, 1, 0] | -0.50 | -0.35 | 0.07 | [0.00, 0.07, 0.00] |
+| **total** | | | | | **1.00** | **[1.19, 1.01, 0.75]** |
+
+Reading it:
+
+1. **Score**: the query is compared with every key (`q · k`, for example `cute`: `1.0×0.8 + 0.5×0.6 = 1.10`). A bigger score means a better match.
+2. **Softmax** (the same softmax as in the word2vec section) turns the scores into weights that sum to 1. Here `teddy bear` itself and `cute` and `reading` get the most weight, and `.` the least.
+3. **Mix the values**: multiply each token's value by its weight and add them up. The result, `[1.19, 1.01, 0.75]`, is the new representation of **teddy bear**, now containing information from the words around it. It has `d_v = 3` numbers.
+
+Why this matters: the old word2vec gave "bank" one fixed vector. Here the output for a token depends on its sentence, so "bank" next to "river" and "bank" next to "money" come out different. This fixes the limitation noted in the word2vec section.
+
+# Transformer Architecture
+
+![Transformer architecture: encoder on the left, decoder on the right](../outputs/transformer_architecture.png)
+
+## Walkthrough of the picture
+
+Two stacks side by side:
+
+- **Left: the encoder.** Reads the whole input and turns it into context-rich vectors.
+- **Right: the decoder.** Produces the output one token at a time, looking at the encoder's result as it goes.
+
+Take translation as the example: input `hello how are you?`, output `¡Hola! ¿Cómo estás?` (the task from the top of these notes).
+
+```mermaid
+flowchart LR
+    I["Inputs<br>(source text)"] --> ENC["Encoder<br>(Nx blocks)"]
+    ENC -- "keys and values" --> DEC["Decoder<br>(Nx blocks)"]
+    O["Outputs so far<br>(shifted right)"] --> DEC
+    DEC --> LIN["Linear"] --> SM["Softmax"] --> P["Next-token<br>probabilities"]
+```
+
+### The blocks, bottom to top
+
+| Block | What it does | Link to earlier in these notes |
+|---|---|---|
+| **Inputs / Outputs** | Text, already cut into tokens | Tokenization section |
+| **Input / Output Embedding** | Looks up each token's vector (`d_model` numbers) | The embedding table, like W1 in word2vec |
+| **Positional Encoding (the ⊕ with the wave)** | Adds a vector that says *where* each token sits in the sentence | New: see below |
+| **Multi-Head Attention** | Every token looks at every other token and mixes in their values | Query, key, value section above |
+| **Masked Multi-Head Attention** | Same, but a token may only look at tokens **before** it | New: see below |
+| **Add & Norm** | Adds the block's input back to its output, then normalises | New: see below |
+| **Feed Forward** | A small 2-layer network applied to each token on its own | The network section above |
+| **Linear** | Turns the final vector into one score per word in the vocabulary | W2 in word2vec |
+| **Softmax** | Turns those scores into probabilities | Softmax section above |
+| **Nx** | The whole green box is repeated N times, each repeat with its own weights | 6 in the original paper |
+
+### Positional encoding: why it is needed
+
+Attention compares every token with every other token and has no idea of order. Without help, "dog bites man" and "man bites dog" would look the same. So a **position vector** is added to each embedding (the ⊕ in the picture): `input to the first block = embedding + position vector`.
+
+The original paper builds the position vector from sines and cosines of different frequencies. For position `pos`, with a tiny `d_model = 4` (the paper uses 512; for `d_model = 4` this is exactly the paper's formula, and with 512 dimensions there are many more frequencies):
+
+```
+PE(pos) = [ sin(pos), cos(pos), sin(pos/100), cos(pos/100) ]
+
+pos 0  →  [0.00, 1.00, 0.00, 1.00]
+pos 1  →  [0.84, 0.54, 0.01, 1.00]
+```
+
+Each position gets its own pattern. Nothing is learned here (in the original design), and an RNN did not need this because it read tokens in order.
+
+### Multi-head attention: several attentions in parallel
+
+One attention can only look for one kind of relationship. **Multi-head** runs `h` attentions side by side, each with its own `W_Q`, `W_K`, `W_V`, so one head can follow "which adjective belongs to which noun" while another follows "who is the subject". Then the heads' outputs are joined and mixed by one more weight matrix.
+
+In the original paper: `h = 8`, `d_model = 512`, so each head uses `d_k = d_v = 512 / 8 = 64`. Joining 8 heads of 64 gives 512 again, so the size matches going into the next block.
+
+### Masked attention: no peeking at the future
+
+When the decoder is learning to predict the next word, it must not see that word. The mask blocks every token from attending to later tokens. Before softmax, the blocked scores are set to `-∞`, and `e^(-∞) = 0`, so their weight becomes exactly 0.
+
+```
+Which tokens can each one see (✓ = allowed, ✗ = masked)?
+
+              ¡Hola   !    ¿Cómo  estás
+¡Hola           ✓     ✗      ✗      ✗
+!               ✓     ✓      ✗      ✗
+¿Cómo           ✓     ✓      ✓      ✗
+estás           ✓     ✓      ✓      ✓
+```
+
+This is also why the decoder's input is **"Outputs (shifted right)"**: the target is moved one place right with a start token in front, so that at each position the model is asked to predict the token that comes *next*, not to copy the one it is looking at.
+
+### Add & Norm: the arrows that go around each block
+
+The arrows that skip around Multi-Head Attention and Feed Forward in the picture are **residual connections**:
+
+```
+output = Norm( x + Block(x) )
+```
+
+- **Add:** the block's input `x` is added to its output. The block only has to learn a *change* to `x`, and gradients can flow straight back through the skip path in backpropagation, which makes deep stacks (Nx) trainable.
+- **Norm:** layer normalisation rescales each token's vector to a steady size so values do not drift or blow up from layer to layer.
+
+### The extra attention in the decoder (the arrow that crosses over)
+
+The decoder has **two** attention blocks:
+
+1. **Masked self-attention:** the output tokens so far look at each other (past only).
+2. **Cross-attention** (the long arrow from the encoder into the middle of the decoder): the queries `q` come from the **decoder**, but the keys `k` and values `v` come from the **encoder's output**. This is how each output word looks back at the source sentence: "which input words matter for the word I am writing now?"
+
+### Final steps and the generation loop
+
+After the last decoder block, **Linear** maps each vector to `V` scores (`V` = vocabulary size, as in word2vec) and **Softmax** turns them into probabilities. Training uses the same cross-entropy loss as in the Loss section above.
+
+At prediction time the model generates one token, appends it to the outputs, and runs the decoder again:
+
+```
+<start>                → ¡Hola
+<start> ¡Hola          → !
+<start> ¡Hola !        → ¿Cómo
+...
+```
+
+until it produces an end token.
+
+### Comparison with what came before
+
+| | RNN | Transformer |
+|---|---|---|
+| Reads tokens | one at a time, in order | all at once, in parallel |
+| Remembers the past via | one hidden state passed along | attention directly to every token |
+| Knows word order via | the order of reading | positional encoding |
+| Distance between related words | long paths, information fades | one attention step, however far |
+
+## Tracing an example through every block
+
+Translation: input `hello how are you` → the decoder's first output word.
+
+> **Note on the numbers:** this is a **tiny, untrained** Transformer, built only to show how data moves. Every weight (the embedding table, `W_Q`, `W_K`, `W_V`, the output matrix, the feed-forward matrices, the final Linear) is **made up**: random numbers rounded to 1 decimal. Sizes are shrunk: `d_model = 4`, 2 heads with `d_k = 2`, **one** block per stack (the paper uses 512, 8 heads of 64, and N = 6). Everything *after* the made-up weights (sums, scores, softmax, normalisation, probabilities) is calculated from them. Because nothing is trained, the output is **not** a real translation, and `¡Hola` coming out on top is luck.
+
+```mermaid
+flowchart TB
+    subgraph ENC["Encoder"]
+        direction TB
+        E1["1 Embedding"] --> E2["2 + Positional encoding"] --> E3["3 Multi-head attention"] --> E4["4 Add & Norm"] --> E5["5 Feed forward"] --> E6["6 Add & Norm<br>= encoder output"]
+    end
+    subgraph DEC["Decoder"]
+        direction TB
+        D1["7 Embedding + position<br>(of &lt;start&gt;)"] --> D2["8 Masked attention + Add & Norm"] --> D3["9 Cross-attention + Add & Norm"] --> D4["10 Feed forward + Add & Norm"] --> D5["11 Linear"] --> D6["12 Softmax"]
+    end
+    E6 -- "keys and values" --> D3
+```
+
+### Encoder
+
+**1. Input embedding.** Each token becomes 4 numbers, a row of the embedding table (like W1 in word2vec):
+
+| token | embedding `E` |
+|---|---|
+| hello | [0.0, 0.3, -0.3, -0.9] |
+| how | [-0.5, -1.0, 0.1, 1.3] |
+| are | [-0.5, -0.6, 0.5, 0.4] |
+| you | [0.1, -0.9, 0.0, 0.7] |
+
+**2. Positional encoding (⊕).** Add a position vector `PE(pos) = [sin(pos), cos(pos), sin(pos/100), cos(pos/100)]` (for `d_model = 4` this is exactly the paper's formula). For "hello" (position 0) it is `[0, 1, 0, 1]`:
+
+`X0 = E + PE = [0.0, 0.3, -0.3, -0.9] + [0, 1, 0, 1] = [0.0, 1.3, -0.3, 0.1]`
+
+Without this step "hello how" and "how hello" would look identical to attention.
+
+**3. Multi-head attention.** Each token makes a `q`, `k` and `v`, compares its query with all four keys (÷ √d_k), and softmaxes. Head 0's weights (row = the token asking, column = the token looked at; every row sums to 1):
+
+| asks ↓ / looks at → | hello | how | are | you |
+|---|---|---|---|---|
+| hello | 0.20 | 0.42 | 0.20 | 0.18 |
+| how | 0.13 | 0.73 | 0.08 | 0.06 |
+| are | 0.22 | 0.48 | 0.16 | 0.14 |
+| you | 0.25 | 0.42 | 0.17 | 0.16 |
+
+Head 1 has different weights (for "hello": 0.17, 0.19, 0.27, 0.36), so each head attends to something else. The two heads' outputs (2 numbers each) are joined into 4 numbers and mixed by one more weight matrix. For "hello" the output is `[-1.54, -1.09, 0.20, -1.62]`.
+
+**4. Add & Norm.** Add the input back, then normalise:
+
+`X0 + attention = [0.0, 1.3, -0.3, 0.1] + [-1.54, -1.09, 0.20, -1.62] = [-1.54, 0.21, -0.10, -1.52]`
+→ normalised: `[-1.00, 1.19, 0.79, -0.98]` (mean 0, steady spread).
+
+**5. Feed forward.** The small network from earlier in these notes: 4 → 8 hidden units → ReLU → 4. For "hello", ReLU zeroes 6 of the 8 hidden units (only 1.11 and 1.52 survive) and the output is `[-1.40, 0.31, -0.87, -0.58]`.
+
+**6. Add & Norm again** gives the **encoder output**:
+
+| token | encoder output |
+|---|---|
+| hello | [-1.19, 1.43, 0.38, -0.62] |
+| how | [-1.18, -0.66, 0.42, 1.42] |
+| are | [-0.76, -1.18, 1.23, 0.71] |
+| you | [-0.20, -1.55, 0.97, 0.79] |
+
+Each token's vector has now seen the whole sentence. These four vectors go to the decoder.
+
+### Decoder
+
+The decoder starts with only `<start>` (the output, shifted right).
+
+**7. Output embedding + positional encoding:**
+`[-1.3, -0.5, -1.9, -1.3] + [0, 1, 0, 1] = [-1.3, 0.5, -1.9, -0.3]`
+
+**8. Masked multi-head attention.** With one token it can only see itself, so the mask hides nothing yet (with more output tokens each would see only the ones before it). After Add & Norm: `[-1.17, -0.34, -0.07, 1.58]`.
+
+**9. Cross-attention.** The query comes from the decoder; the keys and values come from the **encoder output**. This is where the output word looks back at the source sentence:
+
+| | hello | how | are | you |
+|---|---|---|---|---|
+| head 0 | 0.19 | 0.31 | 0.26 | 0.24 |
+| head 1 | 0.27 | 0.26 | 0.25 | 0.22 |
+
+The weights are nearly equal because the matrices are random. A trained model would put most of the weight on the source words that matter for the word being written. After Add & Norm: `[-0.25, -1.24, -0.06, 1.55]`.
+
+**10. Feed forward + Add & Norm.** The decoder's final vector is `[-0.57, 1.29, -1.30, 0.58]`.
+
+**11. Linear.** Maps those 4 numbers to one score per vocabulary word (6 words in this toy vocabulary): `[-0.32, 1.06, 0.13, -0.34, 0.07, 0.07]`.
+
+**12. Softmax.** Scores become probabilities:
+
+| `<start>` | **¡Hola** | ! | ¿Cómo | estás | `<end>` |
+|---|---|---|---|---|---|
+| 0.10 | **0.38** | 0.15 | 0.09 | 0.14 | 0.14 |
+
+The model would pick `¡Hola` and feed it back in as the next decoder input. If `¡Hola` is the true answer, the cross-entropy loss is `-ln(0.38) = 0.97`, the same loss as in the word2vec section.
+
+### What to take from it
+
+- **The size never changes.** Every block takes 4 numbers per token and returns 4 numbers per token, which is why the blocks can be stacked (Nx).
+- **Attention is the only step where tokens exchange information.** Embedding, Add & Norm and Feed forward treat each token separately; attention (steps 3, 8 and 9) is what mixes them.
+- **Training would change every weight.** Backpropagation would adjust the matrices until the cross-attention weights concentrate on the right source words and `¡Hola` really is the likeliest output.
+
+
+## Label smoothing
+Idea
+- 2015 vision paper : overconfidence is bad
+- Introduce noise in true labels
+
+Benefits
+- General technique that prebvents overfitting
+- Improves accuracy and BLEU score
+
+### In simple words
+
+Normally the true label is **one-hot**: the correct word gets probability 1 and every other word gets 0. Cross-entropy loss then keeps rewarding the model for pushing the correct word's probability closer and closer to 1.0, which means pushing its score `z` towards infinity. The model becomes **overconfident**: it says "99.9% sure" even when it should not be.
+
+Label smoothing makes the target a little less extreme: take a small amount `ε` (epsilon, e.g. 0.1) of the probability away from the correct word and share it equally among all `K` words.
+
+```
+smoothed target = (1 - ε) × one-hot + ε / K
+```
+
+### Small example
+
+Task: predict the next word. `K = 4` words, correct word is `¡Hola`, and `ε = 0.1`.
+
+> **Note on the numbers:** `K`, `ε` and the model's predicted probabilities below are **made up** for the example (`ε = 0.1` is a common choice). The targets and losses are calculated from them.
+
+| | ¡Hola (correct) | Hola | Buenas | gracias |
+|---|---|---|---|---|
+| Hard target (one-hot) | **1.0** | 0 | 0 | 0 |
+| Smoothed target | **0.925** | 0.025 | 0.025 | 0.025 |
+
+Check: the correct word gets `(1 - 0.1) × 1 + 0.1 / 4 = 0.9 + 0.025 = 0.925`. Every other word gets `0.1 / 4 = 0.025`. They still add up to 1.
+
+Loss for three models that all rank `¡Hola` first (the same cross-entropy as in the Loss section, using the target instead of just the correct word):
+
+| Model | Predicted probabilities | Hard-label loss | Smoothed-label loss |
+|---|---|---|---|
+| Unsure | [0.5, 0.3, 0.1, 0.1] | 0.69 | 0.79 |
+| Confident | [0.9, 0.05, 0.03, 0.02] | 0.11 | **0.36** |
+| Overconfident | [0.99, 0.004, 0.003, 0.003] | 0.01 | **0.44** |
+
+How to read it:
+
+- **Hard labels:** the more confident, the lower the loss (0.69 → 0.11 → 0.01). The model is always pushed to be more extreme.
+- **Smoothed labels:** the loss is lowest for the **Confident** model (0.36), and goes back **up** for the overconfident one (0.44). Being 99% sure is now punished, because the target itself says "0.925, not 1.0".
+- The best possible prediction under smoothing is the smoothed target itself, `[0.925, 0.025, 0.025, 0.025]`, with loss 0.35. The model is never pushed beyond about 92.5% on the correct word.
+
+### Why it helps
+
+- **Less overfitting:** the model can't drive its scores to extremes to memorise the training data.
+- **Better calibrated:** when it says 90%, it is closer to being right about 90% of the time.
+- **Better BLEU in translation:** this is the benefit in the list above. The Transformer paper used `ε = 0.1` and noted that it hurts perplexity (the model becomes less sure on purpose) but improves accuracy and BLEU.
+
+In code (PyTorch): `CrossEntropyLoss(label_smoothing=0.1)`. The smoothing is applied to the target, so nothing else about training changes.
