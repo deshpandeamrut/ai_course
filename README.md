@@ -44,3 +44,19 @@ Plots are saved to `outputs/` (no window pops up).
 3. Pick a model, `fit` on the training data
 4. `predict` on the test data
 5. Evaluate with a suitable metric
+
+## Reading
+
+### Evaluation metrics
+
+Key metric definitions and formulas for classification
+(TP = true positive, TN = true negative, FP = false positive, FN = false negative).
+
+| Metric | What it measures | Formula | When to use / best suited for |
+|---|---|---|---|
+| **Accuracy** | Overall proportion of correct predictions out of all predictions | $\frac{TP+TN}{TP+TN+FP+FN}$ | Balanced datasets where all classes are equally important. |
+| **Precision** | How many of the predicted positives were actually positive (exactness) | $\frac{TP}{TP+FP}$ | When false positives are costly (e.g. spam detection, false alarms). |
+| **Recall** (Sensitivity) | How many of the actual positives were caught by the model (completeness) | $\frac{TP}{TP+FN}$ | When false negatives are dangerous or costly (e.g. disease diagnosis, fraud detection). |
+| **F1 Score** | Harmonic mean of precision and recall (balances both metrics) | $2 \times \frac{Precision \times Recall}{Precision + Recall}$ | Imbalanced datasets, or when you need a single score combining precision and recall. |
+
+See `lessons/07_metrics.py` for these in code and `BasicMaths/Precision_Recall.md` for a worked example.
